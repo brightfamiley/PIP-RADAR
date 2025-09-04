@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>CodePen - A Pen by Sani Ahmad</title>
+  
+
+</head>
+<body>
+<!-- partial:index.partial.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>PIP RADA – Full Journal + Live Dashboard</title>
+
+  <!-- Chart.js + financial plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3"></script>
+
+  <style>
+    :root{
+      --surface:#ffffff;
+      --text:#333;
+      --accent:#0b3d91;
+      --muted-border:#ccc;
+      --good:#66fcf1;
+      --bad:#ff4c4c;
+      --warn:#ffd700;
+    }
+    body.dark{
+      --surface:#2a2a2a;
+      --text:#f5f5f5;
+      --accent:#111;
+      --muted-border:#555;
+      background:#1e1e1e;
+      color:#f5f5f5;
+    }
+    *{box-sizing:border-box;}
+    body{
+      font-family:Arial, sans-serif;
+      margin:0; padding:0;
+      background:#f5f7fa; color:var(--text);
+      transition:background .25s, color .25s;
+    }
+    header{ text-align:center; padding:18px; background:#0b3d91; color:#fff; }
+    body.dark header{ background:var(--accent); }
+    header img{ width:72px; height:72px; object-fit:contain; display:block; margin:0 auto 8px; }
+
+    .top-buttons{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; padding:10px; }
+    .top-buttons button{ padding:10px 14px; border:none; border-radius:8px; cursor:pointer; background:#0b3d91; color:#fff; }
+    body.dark .top-buttons button{ background:#444; }
+
+    .container{ width:94%; max-width:1200px; margin:14px auto 40px; }
+    section{ background:var(--surface); margin:14px 0; padding:14px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,.08); border:1px solid var(--muted-border); }
+    h2{ margin:0 0 10px; font-size:1.15rem; }
+    .row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .field{ display:flex; flex-direction:column; gap:6px; min-width:180px; }
+    .field label{ font-size:.9rem; opacity:.85; }
+    input, select, textarea{ padding:8px 10px; border-radius:8px; border:1px solid var(--muted-border); background:#fff; color:#000; }
+    body.dark input, body.dark select, body.dark textarea{ background:#1a1a1a; color:#f5f5f5; border:1px solid var(--muted-border); }
+    button.action{ padding:8px 14px; border:none; border-radius:8px; cursor:pointer; background:var(--good); color:#000; }
+    .muted{ opacity:.85; }
+
+    .stats-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:10px; }
+    .stat{ background:rgba(0,0,0,.03); border:1px dashed var(--muted-border); border-radius:10px; padding:10px; min-height:48px; }
+    body.dark .stat{ background:#151515; }
+
+    .journal-table{ width:100%; border-collapse:collapse; margin-top:10px; }
+    .journal-table th, .journal-table td{ border:1px solid var(--muted-border); padding:8px; text-align:center; }
+
+    .charts canvas{ width:100%; max-width:100%; margin:10px 0; background:#fff; border-radius:10px; padding:8px; border:1px solid var(--muted-border); }
+    body.dark .charts canvas{ background:#1a1a1a; }
+
+    iframe{ width:100%; border:1px solid var(--muted-border); height:420px; border-radius:10px; }
+
+    .erase-btn{ background:#d9534f; color:#fff; padding:10px 16px; border:none; border-radius:10px; cursor:pointer; margin-top:10px; }
+
+    @media (max-width:640px){ .row{ flex-direction:column; align-items:stretch; } }
+  </style>
+</head>
+<body>
+  <div class="top-buttons">
+    <button onclick="toggleTheme()">🌙/☀️ Toggle Theme</button>
+    <button onclick="downloadJournal()">⬇️ Download Trade Journal (CSV)</button>
+    <button onclick="downloadRiskJournal()">⬇️ Download Risk Journal (CSV)</button>
+  </div>
+
+  <header>
+    <a id="exchangeLink" href="https://imgur.com/a/B1ZRMAJ" target="_blank" rel="noopener">
+      <img id="exchangeLogo" src="https://i.imgur.com/6Hnp8wJ.jpeg" alt="Exchange Logo">
+    </a>
+    <h1>Pip Radar – Trading Journal & Live Dashboard ✍️📈</h1>
+  </header>
+
+  <div class="container">
+
+    <!-- Trader Info -->
+    <section>
+      <h2>Trader Info</h2>
+      <div class="row">
+        <div class="field">
+          <label for="traderName">Name</label>
+          <input id="traderName" placeholder="Enter Trader Name"/>
+          <div id="traderDisplay" class="muted">—</div>
+        </div>
+
+        <div class="field">
+          <label for="exchangeName">Exchange/Broker</label>
+          <input id="exchangeName" placeholder="e.g. BYBIT, BINANCE, OANDA, FXCM"/>
+          <div id="exchangeDisplay" class="muted">—</div>
+        </div>
+
+        <div class="field">
+          <label for="startingBalanceInput">Starting Balance ($)</label>
+          <input type="number" id="startingBalanceInput" placeholder="Enter starting balance (optional)" min="0" step="0.01"/>
+        </div>
+
+        <div class="field" style="min-width:auto;">
+          <label>&nbsp;</label>
+          <button class="action" onclick="updateTraderInfo()">💾 Save / Update</button>
+        </div>
+      </div>
+
+      <div class="stats-grid" style="margin-top:10px;">
+        <div class="stat"><b>EQUITY</b><div id="balanceDisplay">—</div></div>
+        <div class="stat"><b>Risk (1%)</b><div id="avgRiskDisplay">—</div></div>
+        <div class="stat"><b>Max Drawdown</b><div id="drawdownDisplay">—</div></div>
+        <div class="stat"><b>Growth</b><div id="growthDisplay">—</div></div>
+      </div>
+    </section>
+
+    <!-- Risk / Position Sizing & R:R (INPUTS ONLY - no shaded stat cards) -->
+    <section>
+      <h2>Risk, Position Size & R:R</h2>
+      <div class="row">
+        <div class="field">
+          <label for="riskPercent">Risk % of Equity</label>
+          <input type="number" id="riskPercent" min="0" step="0.1" value="1"/>
+        </div>
+        <div class="field">
+          <label for="entryPrice">Entry Price</label>
+          <input type="number" id="entryPrice" step="0.0001" placeholder="e.g. 1.0850"/>
+        </div>
+        <div class="field">
+          <label for="stopPrice">Stop Loss Price</label>
+          <input type="number" id="stopPrice" step="0.0001" placeholder="e.g. 1.0800"/>
+        </div>
+        <div class="field">
+          <label for="targetPrice">Target Price</label>
+          <input type="number" id="targetPrice" step="0.0001" placeholder="e.g. 1.0950"/>
+        </div>
+        <div class="field">
+          <label for="direction">Direction</label>
+          <select id="direction"><option value="long">Long</option><option value="short">Short</option></select>
+        </div>
+
+        <div class="field" style="min-width:auto;">
+          <label>&nbsp;</label>
+          <button class="action" onclick="calcRiskSizeRR()">🧮 Calculate & Save</button>
+        </div>
+      </div>
+
+      <!-- Removed the small stat cards here per request (shaded area) -->
+
+      <h3 style="margin-top:12px;">Risk Journal (saved automatically)</h3>
+      <table class="journal-table" id="riskTable">
+        <thead>
+          <tr><th>Date</th><th>Risk %</th><th>Risk $</th><th>Position Size</th><th>R:R</th><th>Stop Dist</th><th>Target Dist</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div style="margin-top:8px;">
+        <button onclick="eraseRiskJournal()" class="erase-btn" style="background:#ff7a59;">Erase Risk Journal</button>
+      </div>
+    </section>
+
+    <!-- Journal -->
+    <section>
+      <h2>Journal</h2>
+      <div class="row">
+        <div class="field">
+          <label for="tradeDate">Date</label>
+          <input type="date" id="tradeDate">
+        </div>
+        <div class="field">
+          <label for="pairTraded">Pair</label>
+          <select id="pairTraded">
+            <option value="EURUSD">EUR/USD</option>
+            <option value="GBPUSD">GBP/USD</option>
+            <option value="USDJPY">USD/JPY</option>
+            <option value="USDCHF">USD/CHF</option>
+            <option value="USDCAD">USD/CAD</option>
+            <option value="AUDUSD">AUD/USD</option>
+            <option value="NZDUSD">NZD/USD</option>
+          </select>
+        </div>
+        <div class="field"><label for="tradeSide">Side</label><select id="tradeSide"><option>Long</option><option>Short</option></select></div>
+        <div class="field"><label for="tradeResult">Result</label><select id="tradeResult"><option value="win">Win</option><option value="loss">Loss</option><option value="breakeven">Breakeven</option></select></div>
+        <div class="field"><label for="tradeProfit">Profit ($)</label><input type="number" id="tradeProfit" placeholder="e.g. 120 or -45" step="0.01"></div>
+        <div class="field"><label for="loggedRR">R Multiple (optional)</label><input type="number" id="loggedRR" placeholder="e.g. 1.5 or -1" step="0.01"></div>
+
+        <div class="field" style="min-width:auto;">
+          <label>&nbsp;</label>
+          <button class="action" onclick="addTrade()">➕ Add Trade</button>
+        </div>
+      </div>
+
+      <table class="journal-table" id="journalTable">
+        <thead><tr><th>Date</th><th>Pair</th><th>Side</th><th>Result</th><th>Profit ($)</th><th>R Multiple</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div style="margin-top:8px;">
+        <button onclick="eraseJournal()" class="erase-btn">Erase Trade Journal</button>
+      </div>
+    </section>
+
+    <!-- Performance Charts & Stats -->
+    <section class="charts">
+      <h2>Performance Charts</h2>
+      <div id="pieChartContainer" style="display:none;"><canvas id="pieChart"></canvas></div>
+      <div id="curveChartContainer" style="display:none;"><canvas id="curveChart"></canvas></div>
+      <div id="rrChartContainer" style="display:none;"><canvas id="rrChart"></canvas></div>
+
+      <div style="margin-top:8px;">
+        <button class="erase-btn" onclick="eraseAllData()">🗑️ Erase All App Data (Reset)</button>
+      </div>
+    </section>
+
+    <!-- Market Watch & Live Chart -->
+    <section>
+      <h2>Market Watch (Bybit – USD Majors)</h2>
+      <div class="row">
+        <div class="field">
+          <label for="pairSelect">Pair</label>
+          <select id="pairSelect" onchange="refreshPrice(); loadKlines();">
+            <option value="EURUSDT">EUR/USD</option>
+            <option value="GBPUSDT">GBP/USD</option>
+            <option value="USDJPY">USD/JPY</option>
+            <option value="USDCHF">USD/CHF</option>
+            <option value="USDCAD">USD/CAD</option>
+            <option value="AUDUSDT">AUD/USD</option>
+            <option value="NZDUSDT">NZD/USD</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="timeframe">Timeframe</label>
+          <select id="timeframe" onchange="loadKlines()"><option value="5">5m</option><option value="15">15m</option><option value="60" selected>1h</option><option value="240">4h</option><option value="D">1D</option></select>
+        </div>
+
+        <div class="field" style="min-width:auto;">
+          <label>&nbsp;</label>
+          <button class="action" onclick="refreshPrice(); loadKlines();">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <p>Current Price: <b id="currentPrice">--</b></p>
+      <div class="charts"><canvas id="candleChart"></canvas></div>
+    </section>
+
+    <!-- Live Forex News -->
+    <section>
+      <h2>Live Forex News Feed</h2>
+      <iframe src="https://widgets.myfxbook.com/widgets/news.html"></iframe>
+    </section>
+
+    <!-- Stats Summary -->
+    <section>
+      <h2>Stats Summary</h2>
+      <div id="statsSummary" class="muted">Win Rate: 0% | Profit Factor: 0 | Avg R: 0</div>
+    </section>
+  </div>
+
+  <script>
+    // ------------------- State -------------------
+    let trades = [];
+    let riskCalcs = [];
+    let startingBalance = null;
+
+    let pieChart = null, curveChart = null, rrChart = null, candleChart = null;
+
+    // ------------------- Theme -------------------
+    function applySavedTheme(){
+      const saved = localStorage.getItem('piprada_theme');
+      if(saved === 'dark') document.body.classList.add('dark');
+    }
+    function toggleTheme(){
+      document.body.classList.toggle('dark');
+      localStorage.setItem('piprada_theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+    }
+
+    // ------------------- Trader Info -------------------
+    function updateTraderInfo(){
+      const name = document.getElementById('traderName').value.trim();
+      const exchangeRaw = document.getElementById('exchangeName').value.trim();
+      const exchange = exchangeRaw ? exchangeRaw.toUpperCase() : '';
+      const balInput = parseFloat(document.getElementById('startingBalanceInput').value);
+
+      if(!isNaN(balInput) && balInput > 0){
+        startingBalance = balInput;
+      }
+
+      document.getElementById('traderDisplay').innerText = name || '—';
+      document.getElementById('exchangeDisplay').innerText = exchange || '—';
+
+      if(startingBalance !== null){
+        document.getElementById('balanceDisplay').innerText = startingBalance.toFixed(2);
+        document.getElementById('avgRiskDisplay').innerText = `$${(startingBalance * 0.01).toFixed(2)}`;
+      }
+
+      const logoMap = {
+        BYBIT: 'https://cryptologos.cc/logos/bybit-bybit-logo.png',
+        BINANCE: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.png',
+        OANDA: 'https://companieslogo.com/img/orig/OANDA_BIG-b02f85d1.png',
+        FXCM: 'https://www.fxcm.com/wp-content/uploads/2020/06/fxcm-logo.png'
+      };
+      const linkMap = { BYBIT:'https://www.bybit.com', BINANCE:'https://www.binance.com', OANDA:'https://www.oanda.com', FXCM:'https://www.fxcm.com' };
+      const e = exchange || '';
+      document.getElementById('exchangeLogo').src = logoMap[e] || 'https://i.imgur.com/6Hnp8wJ.jpeg';
+      document.getElementById('exchangeLink').href = linkMap[e] || 'https://imgur.com/a/B1ZRMAJ';
+
+      localStorage.setItem('piprada_trader_info', JSON.stringify({ name, exchange, startingBalance }));
+      updateStats();
+      if(trades.length){ renderCharts(); }
+    }
+
+    function loadTraderInfo(){
+      const saved = localStorage.getItem('piprada_trader_info');
+      if(saved){
+        try{
+          const info = JSON.parse(saved);
+          if(info.name) document.getElementById('traderName').value = info.name;
+          if(info.exchange) document.getElementById('exchangeName').value = info.exchange;
+          if(typeof info.startingBalance === 'number'){
+            startingBalance = info.startingBalance;
+            document.getElementById('startingBalanceInput').value = info.startingBalance;
+          }
+        }catch(e){}
+      }
+      document.getElementById('traderDisplay').innerText = document.getElementById('traderName').value || '—';
+      document.getElementById('exchangeDisplay').innerText = document.getElementById('exchangeName').value || '—';
+      if(startingBalance !== null){
+        document.getElementById('balanceDisplay').innerText = startingBalance.toFixed(2);
+        document.getElementById('avgRiskDisplay').innerText = `$${(startingBalance * 0.01).toFixed(2)}`;
+      }
+    }
+
+    // ------------------- Risk / Position Size / R:R -------------------
+    function calcRiskSizeRR(){
+      if(startingBalance === null){
+        alert("Please enter & save a Starting Balance first.");
+        return;
+      }
+
+      const riskPct = parseFloat(document.getElementById('riskPercent').value) || 0;
+      const entry = parseFloat(document.getElementById('entryPrice').value);
+      const stop = parseFloat(document.getElementById('stopPrice').value);
+      const target = parseFloat(document.getElementById('targetPrice').value);
+      const dir = document.getElementById('direction').value;
+
+      if([entry, stop, target].some(v => isNaN(v))){
+        alert('Please enter entry, stop and target prices.');
+        return;
+      }
+
+      const equity = startingBalance;
+      const riskDollar = equity * (riskPct / 100);
+
+      const stopDist = Math.abs(entry - stop);
+      const targetDist = Math.abs(target - entry);
+
+      let rr = 0;
+      if(dir === 'long') rr = (target - entry) / (entry - stop);
+      else rr = (entry - target) / (stop - entry);
+
+      const positionUnits = stopDist > 0 ? Math.floor(riskDollar / stopDist) : 0;
+
+      // Save to risk journal with date
+      const now = new Date();
+      const dateStr = now.toISOString();
+      const record = {
+        date: dateStr,
+        riskPct,
+        riskDollar: Number(riskDollar),
+        positionUnits: Number(positionUnits),
+        rr: Number(rr),
+        stopDist: Number(stopDist),
+        targetDist: Number(targetDist)
+      };
+      riskCalcs.push(record);
+      localStorage.setItem('piprada_risks', JSON.stringify(riskCalcs));
+      renderRiskTable();
+    }
+
+    function renderRiskTable(){
+      const tbody = document.querySelector('#riskTable tbody');
+      tbody.innerHTML = '';
+      riskCalcs.forEach(r=>{
+        const date = new Date(r.date).toLocaleString();
+        const row = `<tr>
+          <td>${date}</td>
+          <td>${r.riskPct}%</td>
+          <td>$${r.riskDollar.toFixed(2)}</td>
+          <td>${r.positionUnits}</td>
+          <td>${isFinite(r.rr) ? r.rr.toFixed(2) : '0.00'}</td>
+          <td>${r.stopDist.toFixed(5)}</td>
+          <td>${r.targetDist.toFixed(5)}</td>
+        </tr>`;
+        tbody.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    function loadRiskJournal(){
+      const saved = localStorage.getItem('piprada_risks');
+      if(saved){
+        try{ riskCalcs = JSON.parse(saved) || []; }catch(e){ riskCalcs = []; }
+      }
+      renderRiskTable();
+    }
+
+    function eraseRiskJournal(){
+      if(!confirm('Erase all saved risk calculations?')) return;
+      riskCalcs = [];
+      localStorage.removeItem('piprada_risks');
+      renderRiskTable();
+    }
+
+    // ------------------- Journal (Trades) -------------------
+    function addTrade(){
+      const date = document.getElementById('tradeDate').value;
+      const pair = document.getElementById('pairTraded').value;
+      const side = document.getElementById('tradeSide').value;
+      const result = document.getElementById('tradeResult').value;
+      const profit = parseFloat(document.getElementById('tradeProfit').value) || 0;
+      const rmultVal = document.getElementById('loggedRR').value;
+      const rmult = rmultVal !== '' ? parseFloat(rmultVal) : null;
+
+      if(!date){
+        alert('Please select a trade date.');
+        return;
+      }
+
+      trades.push({ time: date, pair, side, result, profit, r: rmult });
+      localStorage.setItem('piprada_trades', JSON.stringify(trades));
+      renderJournal();
+      updateStats();
+      renderCharts();
+
+      // reset inputs for convenience
+      document.getElementById('tradeDate').value = '';
+      document.getElementById('tradeProfit').value = '';
+      document.getElementById('loggedRR').value = '';
+    }
+
+    function renderJournal(){
+      const tbody = document.querySelector('#journalTable tbody');
+      tbody.innerHTML = '';
+      trades.forEach(t => {
+        const row = `<tr><td>${t.time}</td><td>${t.pair}</td><td>${t.side}</td><td>${t.result}</td><td>${Number(t.profit).toFixed(2)}</td><td>${t.r ?? ''}</td></tr>`;
+        tbody.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    function loadTrades(){
+      const saved = localStorage.getItem('piprada_trades');
+      if(saved){
+        try{ trades = JSON.parse(saved) || []; }catch(e){ trades = []; }
+      }
+      renderJournal();
+      updateStats();
+      if(trades.length) renderCharts();
+    }
+
+    function eraseJournal(){
+      if(!confirm('Erase all saved trade journal entries?')) return;
+      trades = [];
+      localStorage.removeItem('piprada_trades');
+      renderJournal();
+      updateStats();
+    }
+
+    // ------------------- Stats & Charts -------------------
+    function updateStats(){
+      if(trades.length === 0){
+        if(startingBalance === null){
+          document.getElementById('balanceDisplay').innerText = '—';
+          document.getElementById('avgRiskDisplay').innerText = '—';
+          document.getElementById('drawdownDisplay').innerText = '—';
+          document.getElementById('growthDisplay').innerText = '—';
+        } else {
+          document.getElementById('balanceDisplay').innerText = startingBalance.toFixed(2);
+          document.getElementById('avgRiskDisplay').innerText = `$${(startingBalance * 0.01).toFixed(2)}`;
+          document.getElementById('drawdownDisplay').innerText = '$0.00';
+          document.getElementById('growthDisplay').innerText = '0%';
+        }
+        document.getElementById('statsSummary').innerText = `Win Rate: 0% | Profit Factor: 0 | Avg R: 0`;
+        return;
+      }
+
+      const profits = trades.map(t => Number(t.profit));
+      const base = (startingBalance === null) ? 0 : startingBalance;
+      const cum = profits.reduce((acc, v, i) => {
+        const prev = (i === 0) ? base : acc[i - 1];
+        acc.push(prev + v);
+        return acc;
+      }, []);
+
+      let peak = base, maxDD = 0;
+      cum.forEach(e => {
+        if(e > peak) peak = e;
+        const dd = peak - e;
+        if(dd > maxDD) maxDD = dd;
+      });
+
+      const currentEquity = cum[cum.length - 1];
+      const wins = trades.filter(t => t.result === 'win').length;
+      const total = trades.length || 1;
+      const winRate = ((wins / total) * 100).toFixed(1);
+      const grossProf = profits.filter(p => p > 0).reduce((a,b)=>a+b,0);
+      const grossLoss = Math.abs(profits.filter(p => p < 0).reduce((a,b)=>a+b,0));
+      const profitFactor = grossLoss === 0 ? (grossProf>0?grossProf:0) : (grossProf / grossLoss);
+      const rValues = trades.filter(t => typeof t.r === 'number' && isFinite(t.r)).map(t => t.r);
+      const avgR = rValues.length ? (rValues.reduce((a,b)=>a+b,0)/rValues.length) : 0;
+
+      if(startingBalance === null){
+        document.getElementById('balanceDisplay').innerText = '—';
+        document.getElementById('avgRiskDisplay').innerText = '—';
+        document.getElementById('drawdownDisplay').innerText = '—';
+        document.getElementById('growthDisplay').innerText = '—';
+      } else {
+        document.getElementById('balanceDisplay').innerText = currentEquity.toFixed(2);
+        document.getElementById('avgRiskDisplay').innerText = `$${(currentEquity * 0.01).toFixed(2)}`;
+        document.getElementById('drawdownDisplay').innerText = `$${maxDD.toFixed(2)}`;
+        document.getElementById('growthDisplay').innerText = `${(((currentEquity - startingBalance) / startingBalance) * 100).toFixed(2)}%`;
+      }
+
+      document.getElementById('statsSummary').innerText = `Win Rate: ${winRate}% | Profit Factor: ${isFinite(profitFactor) ? profitFactor.toFixed(2) : '0'} | Avg R: ${avgR.toFixed(2)}`;
+    }
+
+    function renderCharts(){
+      if(trades.length === 0){
+        if(pieChart){ pieChart.destroy(); pieChart = null; }
+        if(curveChart){ curveChart.destroy(); curveChart = null; }
+        if(rrChart){ rrChart.destroy(); rrChart = null; }
+        document.getElementById('pieChartContainer').style.display = 'none';
+        document.getElementById('curveChartContainer').style.display = 'none';
+        document.getElementById('rrChartContainer').style.display = 'none';
+        return;
+      }
+
+      const wins = trades.filter(t => t.result === 'win').length;
+      const losses = trades.filter(t => t.result === 'loss').length;
+      const be = trades.filter(t => t.result === 'breakeven').length;
+
+      document.getElementById('pieChartContainer').style.display = 'block';
+      if(pieChart) pieChart.destroy();
+      pieChart = new Chart(document.getElementById('pieChart').getContext('2d'), {
+        type: 'pie',
+        data: { labels: ['Win','Loss','Breakeven'], datasets: [{ data: [wins, losses, be], backgroundColor:['#66fcf1','#ff4c4c','#ffd700'] }] },
+        options:{ plugins:{ legend:{ position:'bottom' } } }
+      });
+
+      document.getElementById('curveChartContainer').style.display = 'block';
+      const labels = trades.map(t => t.time);
+      const base = (startingBalance === null) ? 0 : startingBalance;
+      const eq = trades.map((t,i) => trades.slice(0,i+1).reduce((a,b) => a + Number(b.profit), base));
+      if(curveChart) curveChart.destroy();
+      curveChart = new Chart(document.getElementById('curveChart').getContext('2d'), {
+        type:'line',
+        data:{ labels, datasets:[{ label:'Equity', data: eq, borderColor:'#66fcf1', borderWidth:2, pointRadius:2, fill:false, tension:.25 }] },
+        options:{ scales:{ y:{ beginAtZero:false } }, plugins:{ legend:{ display:false } } }
+      });
+
+      const rValues = trades.map(t => (typeof t.r === 'number' && isFinite(t.r)) ? t.r : null).filter(v => v !== null);
+      if(rValues.length){
+        document.getElementById('rrChartContainer').style.display = 'block';
+        if(rrChart) rrChart.destroy();
+        rrChart = new Chart(document.getElementById('rrChart').getContext('2d'), {
+          type:'bar',
+          data:{ labels: trades.filter(t=>t.r!==null).map(t=>t.time), datasets:[{ label:'R Multiple', data: rValues }] },
+          options:{ plugins:{ legend:{ display:false } } }
+        });
+      } else {
+        document.getElementById('rrChartContainer').style.display = 'none';
+        if(rrChart){ rrChart.destroy(); rrChart = null; }
+      }
+    }
+
+    // ------------------- Market Watch & Candles -------------------
+    async function refreshPrice(){
+      const symbol = document.getElementById('pairSelect').value;
+      const url = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`;
+      try{
+        const res = await fetch(url);
+        const data = await res.json();
+        const p = data?.result?.list?.[0]?.lastPrice;
+        document.getElementById('currentPrice').innerText = p ?? '--';
+      } catch(e){
+        document.getElementById('currentPrice').innerText = 'Error';
+        console.error(e);
+      }
+    }
+
+    async function loadKlines(){
+      const symbol = document.getElementById('pairSelect').value;
+      let interval = document.getElementById('timeframe').value;
+      const url = `https://api.bybit.com/v5/market/kline?category=linear&symbol=${symbol}&interval=${interval}&limit=200`;
+      try{
+        const res = await fetch(url);
+        const data = await res.json();
+        const list = data?.result?.list || [];
+        const candles = list.map(arr => ({
+          x: new Date(Number(arr[0])),
+          o: Number(arr[1]),
+          h: Number(arr[2]),
+          l: Number(arr[3]),
+          c: Number(arr[4]),
+          v: Number(arr[5])
+        })).sort((a,b)=>a.x-b.x);
+        renderCandles(candles);
+      } catch(e){
+        console.error(e);
+      }
+    }
+
+    function renderCandles(candles){
+      try{
+        if(candleChart) candleChart.destroy();
+        const ctx = document.getElementById('candleChart').getContext('2d');
+        candleChart = new Chart(ctx, {
+          type: 'candlestick',
+          data: { datasets: [{ label: 'Price', data: candles }] },
+          options: { parsing:false, scales: { x:{ adapter: { date: {} } }, y:{ beginAtZero:false } }, plugins:{ legend:{ display:false } } }
+        });
+      } catch(e){
+        console.warn('Candlestick render error:', e);
+      }
+    }
+
+    // ------------------- CSV -------------------
+    function downloadJournal(){
+      let csv = 'Date,Pair,Side,Result,Profit,R\n';
+      trades.forEach(t => {
+        csv += `${t.time},${t.pair},${t.side},${t.result},${Number(t.profit).toFixed(2)},${t.r ?? ''}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'trade_journal.csv'; a.click(); URL.revokeObjectURL(url);
+    }
+
+    function downloadRiskJournal(){
+      let csv = 'Date,Risk %,Risk $,Position Size,R:R,Stop Dist,Target Dist\n';
+      riskCalcs.forEach(r=>{
+        csv += `"${new Date(r.date).toLocaleString()}",${r.riskPct},${r.riskDollar.toFixed(2)},${r.positionUnits},${isFinite(r.rr)?r.rr.toFixed(2):''},${r.stopDist},${r.targetDist}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'risk_journal.csv'; a.click(); URL.revokeObjectURL(url);
+    }
+
+    // ------------------- Erase All Data -------------------
+    function eraseAllData(){
+      const ok = confirm('Erase ALL saved data and reset the app to a clean state? This will remove trader info, trades, risk journal and theme preference.');
+      if(!ok) return;
+
+      localStorage.removeItem('piprada_trader_info');
+      localStorage.removeItem('piprada_trades');
+      localStorage.removeItem('piprada_risks');
+      localStorage.removeItem('piprada_theme');
+
+      trades = [];
+      riskCalcs = [];
+      startingBalance = null;
+
+      // reset inputs
+      document.getElementById('traderName').value = '';
+      document.getElementById('exchangeName').value = '';
+      document.getElementById('startingBalanceInput').value = '';
+      document.getElementById('tradeDate').value = '';
+      document.getElementById('tradeProfit').value = '';
+      document.getElementById('tradeResult').value = 'win';
+      document.getElementById('loggedRR').value = '';
+      document.getElementById('pairTraded').value = 'EURUSD';
+      document.getElementById('tradeSide').value = 'Long';
+
+      // reset displays
+      document.getElementById('traderDisplay').innerText = '—';
+      document.getElementById('exchangeDisplay').innerText = '—';
+      document.getElementById('balanceDisplay').innerText = '—';
+      document.getElementById('avgRiskDisplay').innerText = '—';
+      document.getElementById('drawdownDisplay').innerText = '—';
+      document.getElementById('growthDisplay').innerText = '—';
+      document.getElementById('statsSummary').innerText = 'Win Rate: 0% | Profit Factor: 0 | Avg R: 0';
+
+      // reset tables & charts
+      document.querySelector('#journalTable tbody').innerHTML = '';
+      document.querySelector('#riskTable tbody').innerHTML = '';
+      if(pieChart){ pieChart.destroy(); pieChart = null; }
+      if(curveChart){ curveChart.destroy(); curveChart = null; }
+      if(rrChart){ rrChart.destroy(); rrChart = null; }
+      if(candleChart){ candleChart.destroy(); candleChart = null; }
+      document.getElementById('pieChartContainer').style.display = 'none';
+      document.getElementById('curveChartContainer').style.display = 'none';
+      document.getElementById('rrChartContainer').style.display = 'none';
+
+      // reset theme
+      document.body.classList.remove('dark');
+
+      alert('Application reset complete. You can start fresh now.');
+    }
+
+    // ------------------- Init -------------------
+    (function init(){
+      applySavedTheme();
+      loadTraderInfo();
+      loadTrades();
+      loadRiskJournal();
+      // initial market and candles (non-blocking)
+      refreshPrice();
+      loadKlines();
+    })();
+  </script>
+</body>
+</html>
+<!-- partial -->
+  
+</body>
+</html>
